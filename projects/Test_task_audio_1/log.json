@@ -1,0 +1,5 @@
+{"message": "tts_models/multilingual/multi-dataset/xtts_v2 is already downloaded."}
+{"message": "Using model: xtts"}
+{"message": "HTTP Request: GET http://127.0.0.1:7860/gradio_api/startup-events \"HTTP/1.1 200 OK\""}
+{"message": "HTTP Request: HEAD http://127.0.0.1:7860/ \"HTTP/1.1 200 OK\""}
+{"message": "HTTP Request: GET https://api.gradio.app/pkg-version \"HTTP/1.1 200 OK\""}
