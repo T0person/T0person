@@ -71,7 +71,6 @@
 # Недочеты
 
 1.  Не реализовано изменение голоса по эмоциям
-2.  Оценка аудио с помощью LLM
 
 # Установка пакетов
 
@@ -85,8 +84,8 @@
 
 `pip install gradio`
 
-`pip install python-Levenshtein`
-
 `pip install python-json-logger`
 
 `pip install pydub`
+
+`pip install sentence-transformers`

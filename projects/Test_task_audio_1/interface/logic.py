@@ -1,4 +1,3 @@
-
 from utils import read_json
 import whisper
 from TTS.api import TTS
@@ -7,21 +6,26 @@ import os
 import gradio as gr
 import logging
 from utils import change_voice
-from Levenshtein import ratio
 from pythonjsonlogger.json import JsonFormatter
+from sentence_transformers import SentenceTransformer, util
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Логгер
 logger = logging.getLogger()
 
-logHandler = logging.FileHandler('log.json')
+logHandler = logging.FileHandler("log.json")
 formatter = JsonFormatter()
 logHandler.setFormatter(formatter)
 logger.addHandler(logHandler)
 logger.setLevel(logging.INFO)
 
-formatter = JsonFormatter("{event}{answer}{voice_answer}{ratio}{outID}{linkID}{emotion}", style="{")
+formatter = JsonFormatter(
+    "{event}{answer}{voice_answer}{ratio}{outID}{linkID}{emotion}", style="{"
+)
+
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
 
 class Gradio_logic:
     def __init__(self, temp_voice_dir, voice_dir, _final_json_file_name):
@@ -30,18 +34,18 @@ class Gradio_logic:
         self.temp_voice_dir = temp_voice_dir
         self.voice_dir = voice_dir
         self.DATA = read_json(_final_json_file_name)
-    
+
     def prepare_temp_audios(self):
         """
         Подготовка возможных вопросов
         """
         for quest, quest_value in self.DATA.items():
-            quest_text = quest_value['text']
-            
+            quest_text = quest_value["text"]
+
             self.use_tts(quest_text, quest)
-        
+
     # Использование TTS
-    def use_tts(self, text:str, name:str):
+    def use_tts(self, text: str, name: str):
         """
         Использование TTS
 
@@ -52,13 +56,26 @@ class Gradio_logic:
         Returns:
             _type_: Путь к сырому аудиофайлу
         """
-        path = f'{self.temp_voice_dir}/{name}.wav'
+        path = f"{self.temp_voice_dir}/{name}.wav"
         if not os.path.exists(path):
-            self.tts.tts_to_file(text=text, speaker="Viktor Menelaos", language="ru", file_path=path, )
+            self.tts.tts_to_file(
+                text=text,
+                speaker="Viktor Menelaos",
+                language="ru",
+                file_path=path,
+            )
         return path
-    
+
     # Транскрибация
-    def speech2text(self, speech:gr.Audio, message:str, chat_history:gr.Chatbot, _id_answer:str, _id_question:str, _emotion:str):
+    def speech2text(
+        self,
+        speech: gr.Audio,
+        message: str,
+        chat_history: gr.Chatbot,
+        _id_answer: str,
+        _id_question: str,
+        _emotion: str,
+    ):
         """
         Отправка ответа боту
 
@@ -73,46 +90,32 @@ class Gradio_logic:
         Returns:
             _type_: История чата, изменение ответа и звука
         """
-        transcription = self.recognite_model.transcribe(speech, language='ru')
-        
+        transcription = self.recognite_model.transcribe(speech, language="ru")
+
         chat_history.append({"role": "user", "content": message})
-        
-        audio_ratio = Gradio_logic.check_Levenshtein(transcription['text'], message)
-        
+
+        audio_ratio = Gradio_logic.check_audio(transcription["text"], message)
+
         audio_answer = gr.Audio(None, interactive=False)
         answer = gr.Dropdown(interactive=True)
-        
-        
+
         logger.info(
             {
-                "event":"Upload_message",
-                "answer":message,
-                "voice_answer":transcription['text'],
-                "ratio":audio_ratio,
-                "outID":_id_answer,
-                "linkID":_id_question,
-                "emotion": _emotion
-                }
-            )
-        
-        # _data = {
-        #     "event":"Upload_message",
-        #     "answer":message,
-        #     "voice_answer":transcription['text'],
-        #     "ratio":audio_ratio,
-        #     "outID":_id_answer,
-        #     "linkID":_id_question,
-        #     "emotion": _emotion
-        # }
-        
-        # with open('log.json', 'a', encoding='utf-8') as file:
-        #     json.dump(_data, file,ensure_ascii=False)
-        
+                "event": "Upload_message",
+                "answer": message,
+                "voice_answer": transcription["text"],
+                "ratio": audio_ratio,
+                "outID": _id_answer,
+                "linkID": _id_question,
+                "emotion": _emotion,
+            }
+        )
+
         return chat_history, answer, audio_answer
-    
+
     # Изменение интерфейса
     @staticmethod
-    def answer_select(_answer:str, _actual_answers:dict, _id_fist_question):
+    def answer_select(_answer: str, _actual_answers: dict, _id_fist_question):
         """
         Функция получения ID следующего вопроса
 
@@ -125,15 +128,20 @@ class Gradio_logic:
         """
         _id_next_question = False
         for i in _actual_answers:
-            if i['text'] == _answer:
-                _id_next_question =  i['linkID']
+            if i["text"] == _answer:
+                _id_next_question = i["linkID"]
                 _out_id = i["outID"]
                 break
         if not _id_next_question:
             _id_next_question = _id_fist_question
             _out_id = None
-        
-        return gr.Dropdown(interactive=False), gr.Audio(interactive=True), _id_next_question, _out_id
+
+        return (
+            gr.Dropdown(interactive=False),
+            gr.Audio(interactive=True),
+            _id_next_question,
+            _out_id,
+        )
 
     # Выборка вопросов и ответов
     def get_QA(self, _question="Вопрос 1"):
@@ -146,16 +154,15 @@ class Gradio_logic:
         Returns:
             _type_: Текст вопроса и перечень ответов
         """
-        _question_text = self.DATA[_question]['text']
-        _answer =  _question.replace("Вопрос", "Ответ")
+        _question_text = self.DATA[_question]["text"]
+        _answer = _question.replace("Вопрос", "Ответ")
         _answers = []
-        for ans_id in range(1,10):
+        for ans_id in range(1, 10):
             try:
                 _answers.append(self.DATA[_question][f"{_answer}.{ans_id}"])
             except:
                 break
-            
-            
+
         return _question_text, _answers
 
     # Логика получения вопросов и ответов
@@ -178,12 +185,14 @@ class Gradio_logic:
             for label_question, value in self.DATA.items():
                 if value.get("quest_id") == _actual_question:
                     audio_file_name = label_question
-                    _question_text, _actual_answers = Gradio_logic.get_QA(label_question)
+                    _question_text, _actual_answers = Gradio_logic.get_QA(
+                        label_question
+                    )
                     break
-                    
+
         return _question_text, _actual_answers, audio_file_name
 
-    def gr_logic_chat(self, _id_next_question, _emotion, chat_history:gr.Chatbot):
+    def gr_logic_chat(self, _id_next_question, _emotion, chat_history: gr.Chatbot):
         """
         Функция логики отправки сообщения
 
@@ -194,33 +203,50 @@ class Gradio_logic:
         Returns:
             _type_: Чат, Dropdown меню, Список ответов
         """
-        _question_text, _answers, audio_file_name = Gradio_logic.QA_logic(_id_next_question)
-        _answers_text = [i['text'] for i in _answers]
+        _question_text, _answers, audio_file_name = Gradio_logic.QA_logic(
+            _id_next_question
+        )
+        _answers_text = [i["text"] for i in _answers]
         audio_file_path = self.use_tts(_question_text, audio_file_name)
-        
-        audio_file_path = change_voice(audio_file_path, audio_file_name, _emotion, self.voice_dir)
-        
-        
+
+        audio_file_path = change_voice(
+            audio_file_path, audio_file_name, _emotion, self.voice_dir
+        )
+
         # В Json файле была утеряна нить так что такой костыль
         if "Продолжаем?" in _answers_text:
             _answers_text.append("С начала?")
-        
+
         _answer = gr.Dropdown(
-                _answers_text,
-                label="Ответы",
-                info="Выберите ответ",
-                interactive=True)
-        
+            _answers_text, label="Ответы", info="Выберите ответ", interactive=True
+        )
+
         chat_history.append({"role": "assistant", "content": _question_text})
-        
-        _audio = gr.Audio(audio_file_path, type="filepath", interactive=False, autoplay=True)
-        
+
+        _audio = gr.Audio(
+            audio_file_path, type="filepath", interactive=False, autoplay=True
+        )
+
         return chat_history, _answer, _answers, _audio
-    
+
     @staticmethod
-    def check_Levenshtein(audio_text, text):
+    def check_audio(audio_text: str, text: str) -> str:
+        """
+        Семантическая оценка аудио с помоью LLM
+
+        Args:
+            audio_text (str): Транскрибированный текст
+            text (str): Заранее обозначеный текст
+
+        Returns:
+            str: Процент
+        """
         try:
-            similarity_score = ratio(audio_text, text)
+            embedding_1 = model.encode(audio_text, convert_to_tensor=True)
+            embedding_2 = model.encode(text, convert_to_tensor=True)
+            tensor_persent = util.pytorch_cos_sim(embedding_1, embedding_2)
+            similarity_score = round(tensor_persent.item() * 100, 2)
+            similarity_score = str(similarity_score) + " %"
         except:
             similarity_score = "Не было слышно (Не распознано)"
         return similarity_score

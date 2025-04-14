@@ -1,6 +1,6 @@
 pip install coqui-tts
 pip install openai-whisper
 pip install gradio
-pip install python-Levenshtein
 pip install python-json-logger
 pip install pydub
+pip isntall sentence-transformers
