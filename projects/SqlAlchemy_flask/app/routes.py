@@ -19,7 +19,7 @@ def index():
     return render_template("index.html", title="Home Page", posts=posts)
 
 
-# логинация
+# Логинация
 @app.route("/login", methods=["GET", "POST"])
 def login():
     # Если юзер зарегистрирован (уже есть в бд)
@@ -39,13 +39,17 @@ def login():
 
         # Проверка пароля, если есть пользователь
         if user is None or not user.check_password(form.password.data):
-            flash("Invalid username or password")
+            flash("Неправильное имя пользователя или пароль!")
             return redirect(url_for("login"))
 
         # Логинация пользователя
         login_user(user, remember=form.remember_me.data)
 
+        # Получаем страницу в поле next в строке запроса
+        # Для перенаправления пользователя после логинации
         next_page = request.args.get("next")
+
+        # Если нет поля next, возвращаем пользователя на главную страницу
         if not next_page or urlsplit(next_page).netloc != "":
             next_page = url_for("index")
 
@@ -55,7 +59,7 @@ def login():
     return render_template("login.html", title="Sign In", form=form)
 
 
-# Разлогинация
+# Выход из системы
 @app.route("/logout")
 def logout():
     logout_user()
@@ -87,7 +91,7 @@ def register():
     return render_template("register.html", title="Register", form=form)
 
 
-# Страница пользователя
+# Страница профиля пользователя
 @app.route("/user/<username>")
 @login_required
 def user(username):

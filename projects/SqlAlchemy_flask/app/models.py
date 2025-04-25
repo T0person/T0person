@@ -49,8 +49,9 @@ class User(UserMixin, db.Model):
         return f"https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}"
 
 
+# Функция загрузки Flask-Login user
 @login.user_loader
-def load_user(id):
+def load_user(id):  # Принимается строка, необходимо перевести в число
     return db.session.get(User, int(id))
 
 

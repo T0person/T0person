@@ -10,12 +10,12 @@
   <body>
     <div>
         Microblog:
-        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('index') }}">Дом</a>
         {% if current_user.is_anonymous %}
-        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('login') }}">Логинация</a>
         {% else %}
-        <a href="{{ url_for('user', username=current_user.username) }}">Profile</a>
-        <a href="{{ url_for('logout') }}">Logout</a>
+        <a href="{{ url_for('user', username=current_user.username) }}">Профиль</a>
+        <a href="{{ url_for('logout') }}">Выйти</a>
         {% endif %}
     </div>
         <hr>
