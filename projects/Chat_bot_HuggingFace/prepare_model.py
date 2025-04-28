@@ -5,11 +5,13 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 from huggingface_hub import login  # Логинация Huggingface
 
+device = "cuda"
+
 
 def save_model_HF(model_name: str, quantization_config: BitsAndBytesConfig):
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, quantization_config=quantization_config
+        model_name, quantization_config=quantization_config, device_map=device
     )
     save_dir = model_name.split("/")[1]
     # Сохраняю модель
@@ -17,7 +19,7 @@ def save_model_HF(model_name: str, quantization_config: BitsAndBytesConfig):
     tokenizer.save_pretrained(save_dir)
 
 
-def quantizate_4bit():
+def quantizate_4bit() -> BitsAndBytesConfig:
     # Определяем параметры квантования, вес модели уменьшается в 4 раза
     quantization_config = BitsAndBytesConfig(
         load_in_4bit=True,  # Используем 4-битное квантование
@@ -28,10 +30,10 @@ def quantizate_4bit():
     return quantization_config
 
 
-def quantizate_8bit():
+def quantizate_8bit() -> BitsAndBytesConfig:
     # Определяем параметры квантования, вес модели уменьшается в 2 раза
     quantization_config = BitsAndBytesConfig(
-        load_in_8bit=True,  # Используем 8-битное квантование
+        load_in_8bit=True, device_map=device  # Используем 8-битное квантование
     )
     return quantization_config
 
@@ -80,10 +82,10 @@ def main():
 
     # 4-битное квантование
     if args.quant[0] == True:
-        quantization_config = quantizate_4bit(model_name=args.model)
+        quantization_config = quantizate_4bit()
 
     # 8-битное квантование
-    quantization_config = quantizate_8bit(model_name=args.model)
+    quantization_config = quantizate_8bit()
 
     save_model_HF(args.model, quantization_config)
 
