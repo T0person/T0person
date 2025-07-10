@@ -1,22 +1,26 @@
 from app import app, db
 from flask import render_template, flash, redirect, url_for, request
-from .forms import LoginForm, RegistrationForm, EditProfileForm
+from .forms import LoginForm, PostForm, RegistrationForm, EditProfileForm, EmptyForm
 from urllib.parse import urlsplit
 from flask_login import current_user, login_required, login_user, logout_user
 import sqlalchemy as sa
-from .models import User
+from .models import User, Post
 from datetime import datetime, timezone
 
 
-@app.route("/")
-@app.route("/index")
+@app.route("/", methods=["GET", "POST"])
+@app.route("/index", methods=["GET", "POST"])
 @login_required
 def index():
-    posts = [
-        {"author": {"username": "John"}, "body": "Beautiful day in Portland!"},
-        {"author": {"username": "Susan"}, "body": "The Avengers movie was so cool!"},
-    ]
-    return render_template("index.html", title="Home Page", posts=posts)
+    form = PostForm()  # Создание формы
+    if form.validate_on_submit():
+        post = Post(body=form.post.data, author=current_user)  # Модель поста
+        db.session.add(post)
+        db.session.commit()
+        flash("Пост загружен!")
+        return redirect(url_for("index"))
+    posts = db.session.scalars(current_user.following_posts()).all()
+    return render_template("index.html", title="Home Page", form=form, posts=posts)
 
 
 # Логинация
@@ -102,8 +106,9 @@ def user(username):
         {"author": user, "body": "Test post #1"},
         {"author": user, "body": "Test post #2"},
     ]
+    form = EmptyForm()  # Создание формы подсписки
     # Рендер страницы
-    return render_template("user.html", user=user, posts=posts)
+    return render_template("user.html", user=user, posts=posts, form=form)
 
 
 # Обновление последнего посещения
@@ -118,7 +123,7 @@ def before_request():
 @app.route("/edit_profile", methods=["GET", "POST"])
 @login_required
 def edit_profile():
-    form = EditProfileForm()
+    form = EditProfileForm(current_user.username)
 
     # Если правильно заполнена форма
     if form.validate_on_submit():
@@ -133,3 +138,57 @@ def edit_profile():
         form.username.data = current_user.username
         form.about_me.data = current_user.about_me
     return render_template("edit_profile.html", title="Edit Profile", form=form)
+
+
+# Маршрут подписки
+@app.route("/follow/<username>", methods=["POST"])
+@login_required
+def follow(username):
+    form = EmptyForm()  # Создание формы
+    if form.validate_on_submit():  # Проверка токена CSRF
+        user = db.session.scalar(
+            sa.select(User).where(User.username == username)
+        )  # Поиск пользователя
+        if user is None:
+            flash(f"Пользователь {username} не найден.")
+            return redirect(url_for("index"))
+        if user == current_user:  # Если сам на себя
+            flash("Ты не можешь подписаться на себя!")
+            return redirect(url_for("user", username=username))
+        current_user.follow(user)
+        db.session.commit()
+        flash(f"Ты подписан на {username}!")
+        return redirect(url_for("user", username=username))
+    # Если токен не действителен
+    else:
+        return redirect(url_for("index"))
+
+
+# Маршрут отписки
+@app.route("/unfollow/<username>", methods=["POST"])
+@login_required
+def unfollow(username):
+    form = EmptyForm()  # Создание формы
+    if form.validate_on_submit():
+        user = db.session.scalar(sa.select(User).where(User.username == username))
+        if user is None:
+            flash(f"Пользователь {username} не найден.")
+            return redirect(url_for("index"))
+        if user == current_user:
+            flash("ты не можешь отписаться от себя")
+            return redirect(url_for("user", username=username))
+        current_user.unfollow(user)
+        db.session.commit()
+        flash(f"Ты не подписан на {username}.")
+        return redirect(url_for("user", username=username))
+    else:
+        return redirect(url_for("index"))
+
+
+# Просмотр всех сообщений
+@app.route("/explore")
+@login_required
+def explore():
+    query = sa.select(Post).order_by(Post.timestamp.desc())
+    posts = db.session.scalars(query).all()
+    return render_template("index.html", title="Explore", posts=posts)

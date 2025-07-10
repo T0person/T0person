@@ -1,6 +1,0 @@
-venv
-.env
-.vscode
-utils/__pycache__
-Memory_stores
-Mistral-Nemo-Instruct-2407

@@ -7,6 +7,16 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from hashlib import md5
 
+# Самореферентная таблица подписчиков
+followers = sa.Table(
+    "followers",  # Имя таблицы
+    db.metadata,  # Метаданные (Информация обо всех таблицах в БД)
+    sa.Column(
+        "follower_id", sa.Integer, sa.ForeignKey("user.id"), primary_key=True
+    ),  # Составные первичные ключи
+    sa.Column("followed_id", sa.Integer, sa.ForeignKey("user.id"), primary_key=True),
+)
+
 
 class User(UserMixin, db.Model):
     # ID
@@ -47,6 +57,72 @@ class User(UserMixin, db.Model):
     def avatar(self, size):
         digest = md5(self.email.lower().encode("utf-8")).hexdigest()
         return f"https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}"
+
+    ## ---------Подписки и прочее, что к ним относится
+
+    # Связь, где видно список пользователей, на которых пользователь подписывается
+    following: so.WriteOnlyMapped["User"] = so.relationship(
+        secondary=followers,  # Настройка ассоциаций
+        primaryjoin=(followers.c.follower_id == id),  # Соответствия с атрибутами
+        secondaryjoin=(followers.c.followed_id == id),
+        back_populates="followers",  # Связь с моделью
+    )
+    # Связь, где видно список пользователей, которые подписаны на пользователя
+    followers: so.WriteOnlyMapped["User"] = so.relationship(
+        secondary=followers,
+        primaryjoin=(followers.c.followed_id == id),
+        secondaryjoin=(followers.c.follower_id == id),
+        back_populates="following",  # Связь с моделью
+    )
+
+    # Подписаться
+    def follow(self, user):
+        if not self.is_following(user):
+            self.following.add(user)
+
+    # Отписаться
+    def unfollow(self, user):
+        if self.is_following(user):
+            self.following.remove(user)
+
+    # Проверка на существующую подписку
+    def is_following(self, user):
+        query = self.following.select().where(User.id == user.id)
+        return db.session.scalar(query) is not None
+
+    # Количество подписчиков
+    def followers_count(self):
+        query = sa.select(sa.func.count()).select_from(
+            self.followers.select().subquery()  # Подзапрос
+        )
+        return db.session.scalar(query)
+
+    # Количество подписок
+    def following_count(self):
+        query = sa.select(sa.func.count()).select_from(
+            self.following.select().subquery()  # Подзапрос
+        )
+        return db.session.scalar(query)
+
+    def following_posts(self):
+        Author = so.aliased(User)  # Ссылка на User модель для автора
+        Follower = so.aliased(User)  # Ссылка на User модель для подписчика
+        return (
+            sa.select(Post)  # Выборка постов
+            .join(Post.author.of_type(Author))  # Объединение, дальнейшая ссылка Author
+            .join(
+                Author.followers.of_type(Follower), isouter=True
+            )  # Объединение левой стороны без соответсвий справа (внешнее объединение)
+            # Получаем посты автора и подписок
+            .where(
+                sa.or_(
+                    Follower.id == self.id,
+                    Author.id == self.id,
+                )
+            )
+            .group_by(Post)  # Группировка по всем полям постов
+            .order_by(Post.timestamp.desc())  # Сортировка
+        )
 
 
 # Функция загрузки Flask-Login user

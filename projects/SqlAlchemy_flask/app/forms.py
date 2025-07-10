@@ -75,3 +75,33 @@ class EditProfileForm(FlaskForm):
     username = StringField("Username", validators=[DataRequired()])
     about_me = TextAreaField("About me", validators=[Length(min=0, max=140)])
     submit = SubmitField("Submit")
+
+    def __init__(self, original_username, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.original_username = (
+            original_username  # Получение исходного имени пользователя
+        )
+
+    # Функция проверки имени
+    def validate_username(self, username):
+        # Если введеное имя другое
+        if username.data != self.original_username:
+            # Проверка в базе данных
+            user = db.session.scalar(
+                sa.select(User).where(User.username == self.username.data)
+            )
+            if user is not None:
+                raise ValidationError("Используйте другое имя!")
+
+
+# Форма для подписок и отписок
+class EmptyForm(FlaskForm):
+    submit = SubmitField("Submit")
+
+
+# Форма создания поста
+class PostForm(FlaskForm):
+    post = TextAreaField(
+        "Напиши что-нибудь", validators=[DataRequired(), Length(min=1, max=140)]
+    )
+    submit = SubmitField("Submit")
