@@ -14,6 +14,10 @@ import onnxruntime as ort
 import os
 import tempfile
 import torch
+from huggingface_hub import login
+
+login(str(getenv("HF_KEY")))
+
 
 # Настройка ONNX Runtime перед загрузкой модели
 ort.set_default_logger_severity(3)  # Уменьшаем уровень логов ONNX Runtime
@@ -64,7 +68,7 @@ class Whisper_model:
         # Загружаем модель диаризации
         self.pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.0",
-            use_auth_token=getenv("HF_KEY"),
+            # use_auth_token="",
         )
         self.pipeline.to(torch.device("cuda"))
 

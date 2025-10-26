@@ -16,6 +16,8 @@ from .templates import (
     rules_questions,
     manager_script,
     rules_system_prompt,
+    gramma_system_prompt,
+    role_fix_system_prompt,
 )
 from .logger_config import logger_google, logger_mango, logger_LLM, logger_main
 
@@ -96,8 +98,13 @@ def main(
 
         text = whisper_model.get_transcribe(audio)
 
-        # Генерация
         start_time = time.time()  # Начало отсчета
+
+        # Пост обработка
+        text = LLM_model.generate_answer(gramma_system_prompt, text)
+        text = LLM_model.generate_answer(role_fix_system_prompt, text)
+
+        # Генерация
         type_text = LLM_model.generate_answer(type_system_prompt, text)  # Тип разговора
         summary = LLM_model.generate_answer(summary_system_prompt, text)  # Пересказ
 

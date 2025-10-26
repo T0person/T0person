@@ -203,53 +203,54 @@ class Mango_API:
 
     def create_records_list(self, records_list: dict) -> list:
         """
-        Выборка звонков клиент-сотрудник и составление списка звонков
+        Фильтрация и структуризация звонков клиент-сотрудник.
 
         Args:
-            records_list (dict): Список звонков в формате текста
+            records_list (dict): Сырые данные о звонках из API
 
         Returns:
-            list: Выборка звонков
+            list: Список отформатированных записей звонков в виде:
+                [recording_id, date, caller, receiver]
         """
         calls = []
 
-        # Структуризация звонков
-        for call in records_list["data"][0]["list"][::-1]:
-            if call["context_status"] == 1:
-                match call["context_type"]:
-                    # Входящий
-                    case 1:
-                        client_number = call["caller_name"]
-                        _timestamp = float(call["context_calls"][0]["call_start_time"])
-                        date = datetime.fromtimestamp(_timestamp).strftime(
-                            "%d.%m.%Y %H:%M:%S"
-                        )
+        for call in reversed(records_list["data"][0]["list"]):
+            if call["context_status"] != 1:
+                continue
 
-                        try:
-                            manager_name = call["context_calls"][0]["members"][0][
-                                "call_abonent_info"
-                            ]
-                        except:
-                            manager_name = call["called_number"]
-                            error = {"datetime": date}
-                            logger_mango.warning("Нет имени сотрудника!", extra=error)
+            context_call = call["context_calls"][0]
+            call_type = call["context_type"]
 
-                        recording_id = call["context_calls"][0]["recording_id"][0]
+            # Пропускаем звонки без записи
+            if call_type == 2 and not context_call["recording_id"]:
+                continue
 
-                        calls.append([recording_id, date, client_number, manager_name])
-                    # Исходящий
-                    case 2:
-                        if len(call["context_calls"][0]["recording_id"]) != 0:
-                            manager_name = call["caller_name"]
-                            _timestamp = call["context_calls"][0]["call_start_time"]
-                            date = datetime.fromtimestamp(_timestamp).strftime(
-                                "%d.%m.%Y %H:%M:%S"
-                            )
-                            client_number = call["called_number"]
-                            recording_id = call["context_calls"][0]["recording_id"][0]
-                            calls.append(
-                                [recording_id, date, manager_name, client_number]
-                            )
+            # Обработка временной метки
+            timestamp = float(context_call["call_start_time"])
+            date = datetime.fromtimestamp(timestamp).strftime("%d.%m.%Y %H:%M:%S")
+
+            # Получение recording_id (для всех валидных случаев)
+            recording_id = context_call["recording_id"][0]
+
+            # Обработка разных типов звонков
+            if call_type == 1:  # Входящий
+                client_number = call["caller_name"]
+
+                try:
+                    manager_name = context_call["members"][0]["call_abonent_info"]
+                except (KeyError, IndexError):
+                    manager_name = call["called_number"]
+                    logger_mango.warning(
+                        "Нет имени сотрудника!", extra={"datetime": date}
+                    )
+
+                calls.append([recording_id, date, client_number, manager_name])
+
+            elif call_type == 2:  # Исходящий
+                manager_name = call["caller_name"]
+                client_number = call["called_number"]
+                calls.append([recording_id, date, manager_name, client_number])
+
         return calls
 
     def get_audio_files_list(self, recording_id: str) -> io.BytesIO:

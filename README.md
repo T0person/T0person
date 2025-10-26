@@ -130,23 +130,27 @@
 -   sentence-transformers
 
 
-## Web приложение 04.2025 (В разработке)
+## Сервер обработки данных 07.2025-10.2025
 
-**Задача:** Создание Web приложения
+**Задача:** Создание сервера обработки данных
 
 ### **Основные функции:**
 
--   Регистрация/Логинация
--   Личная страница
--   Просмотр сообщений
--   Логирование действий
-
-[**Проект**](https://github.com/T0person/T0person/tree/main/projects/SqlAlchemy_flask)
+-   Транскрибация
+-   Диаризация
+-   Подготовка отчетов
+-   Логирование
 
 ### **Используемые технологии:**
 
--   Flask
--   SqlAlchemy
+-   Celery
+-   FastAPI
+-   Ollama
+-   Faster-whisper
+-   Parakeet
+-   Mango API
+-   Yandex Cloud
+-   Threading
 
 
 # PET и учебные проекты 	07.2023 – настоящее время
@@ -163,7 +167,7 @@
 
 Разработал несколько систем методами классического машинного обучения.
 
-[Проект](https://github.com/T0person/T0person/blob/main/examples/Classic_ml.ipynb)
+[**Проект**](https://github.com/T0person/T0person/blob/main/examples/Classic_ml.ipynb)
 
 **Основные технологии:** SkLearn + XGboos + Tensorflow
 
